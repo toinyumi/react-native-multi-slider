@@ -125,6 +125,7 @@ export default class MultiSlider extends React.Component {
   subscribePanResponder = () => {
     var customPanResponder = (start, move, end, isClicked = false) => {
       return PanResponder.create({
+        onStartShouldSetPanResponder: (evt, gestureState) => true,
         onStartShouldSetPanResponderCapture: (evt, gestureState) => false,
         onMoveShouldSetPanResponder: (evt, gestureState) => false,
         onMoveShouldSetPanResponderCapture: (evt, gestureState) => false,
@@ -345,10 +346,6 @@ export default class MultiSlider extends React.Component {
   };
 
   moveTwo = gestureState => {
-    if (!this.props.enabledTwo) {
-      return;
-    }
-
     const accumDistance = this.props.vertical
       ? -gestureState.dy
       : gestureState.dx;
@@ -414,10 +411,6 @@ export default class MultiSlider extends React.Component {
   };
 
   endOne = gestureState => {
-    if (!this.props.enabledOne) {
-      return;
-    }
-
     if (gestureState.moveX === 0 && this.props.onToggleOne) {
       this.props.onToggleOne();
       return;
@@ -602,12 +595,17 @@ export default class MultiSlider extends React.Component {
       : selectedStyle || styles.selectedTrack;
     const trackThreeLength = twoMarkers ? sliderLength - positionTwo : 0;
     const trackThreeStyle = unselectedStyle;
-    const trackTwoLength = sliderLength - trackOneLength - trackThreeLength;
+    const trackFourStyle = this.props.loadingStyle ? this.props.loadingStyle : {};
+    const trackFourLength = valueToPosition(
+      this.props.loadingProgress,
+      this.optionsArray,
+      sliderLength,
+      this.props.markerSize,
+    ) - trackOneLength;
+    const trackTwoLength = sliderLength - trackOneLength - trackThreeLength - trackFourLength;
     const trackTwoStyle = twoMarkers
       ? selectedStyle || styles.selectedTrack
       : unselectedStyle;
-    const trackFourStyle = trackStyle;
-    const trackFourLength = this.props.loadingProgress;
     const Marker = this.props.customMarker;
 
     const MarkerLeft = this.props.customMarkerLeft;
@@ -660,6 +658,7 @@ export default class MultiSlider extends React.Component {
           <View
             style={[
               styles.track,
+              this.props.trackStyle,
               trackFourStyle,
               { width: trackFourLength },
             ]}
