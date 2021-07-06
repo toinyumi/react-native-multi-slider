@@ -36,6 +36,7 @@ export interface LabelProps {
 }
 
 export interface MultiSliderProps {
+    loadingProgress?: number;
     values?: number[];
 
     onValuesChange?: (values: number[]) => void;
@@ -67,6 +68,7 @@ export interface MultiSliderProps {
 
     containerStyle?: ViewStyle;
     trackStyle?: ViewStyle;
+    loadingStyle?: ViewStyle;
     selectedStyle?: ViewStyle;
     unselectedStyle?: ViewStyle;
     markerContainerStyle?: ViewStyle;
@@ -94,6 +96,7 @@ export interface MultiSliderProps {
     imageBackgroundSource?: string;
     enableLabel?: boolean;
     vertical?: boolean;
+    allowSliderClick?: boolean;
 }
 
 export default class MultiSlider extends React.Component<MultiSliderProps> {}

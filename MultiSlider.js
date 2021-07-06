@@ -17,6 +17,7 @@ import { createArray, valueToPosition, positionToValue } from './converters';
 
 export default class MultiSlider extends React.Component {
   static defaultProps = {
+    loadingProgress: 0,
     values: [0],
     onValuesChangeStart: () => {},
     onValuesChange: values => {},
@@ -54,6 +55,7 @@ export default class MultiSlider extends React.Component {
     minMarkerOverlapDistance: 0,
     minMarkerOverlapStepDistance: 0,
     testID: '',
+    allowSliderClick: false,
   };
 
   constructor(props) {
@@ -121,18 +123,32 @@ export default class MultiSlider extends React.Component {
   }
 
   subscribePanResponder = () => {
-    var customPanResponder = (start, move, end) => {
+    var customPanResponder = (start, move, end, isClicked = false) => {
       return PanResponder.create({
-        onStartShouldSetPanResponder: (evt, gestureState) => true,
-        onStartShouldSetPanResponderCapture: (evt, gestureState) => true,
-        onMoveShouldSetPanResponder: (evt, gestureState) => true,
-        onMoveShouldSetPanResponderCapture: (evt, gestureState) => true,
-        onPanResponderGrant: (evt, gestureState) => start(),
-        onPanResponderMove: (evt, gestureState) => move(gestureState),
-        onPanResponderTerminationRequest: (evt, gestureState) => false,
-        onPanResponderRelease: (evt, gestureState) => end(gestureState),
-        onPanResponderTerminate: (evt, gestureState) => end(gestureState),
-        onShouldBlockNativeResponder: (evt, gestureState) => true,
+        onStartShouldSetPanResponderCapture: (evt, gestureState) => false,
+        onMoveShouldSetPanResponder: (evt, gestureState) => false,
+        onMoveShouldSetPanResponderCapture: (evt, gestureState) => false,
+        onPanResponderGrant: (evt, gestureState) => {
+          if (!isClicked) start();
+        },
+        onPanResponderMove: (evt, gestureState) => {
+          if (!isClicked) move(gestureState);
+        },
+        onPanResponderTerminationRequest: (evt, gestureState) => true,
+        onPanResponderRelease: (evt, gestureState) => {
+          if (isClicked && Math.abs(gestureState.dx) <= 1) {
+            /*if its coming from slider and distance is not covered than only move the thumb
+              because we are preventing it to move when user drag on slider*/
+            //   console.log("onStartShouldSetPanResponder else " + (Math.abs(gestureState.dx) >= 1) + " " + gestureState.dx)
+            move(gestureState);
+          } else {
+            end(gestureState);
+          }
+        },
+        onPanResponderTerminate: (evt, gestureState) => {
+          if (!isClicked) end(gestureState);
+        },
+        onShouldBlockNativeResponder: (evt, gestureState) => false,
       });
     };
 
@@ -149,6 +165,13 @@ export default class MultiSlider extends React.Component {
         this.endOne(gestureState);
         this.endTwo(gestureState);
       },
+    );
+
+    this._panResponderOneTapped = customPanResponder(
+      this.startOne,
+      this.moveOneTapped,
+      this.endOne,
+      true
     );
 
     this._panResponderOne = customPanResponder(
@@ -178,6 +201,73 @@ export default class MultiSlider extends React.Component {
       this.setState({
         twoPressed: !this.state.twoPressed,
       });
+    }
+  };
+
+  moveOneTapped = gestureState => {
+    if (!this.props.enabledOne) {
+      return;
+    }
+    const accumDistance = this.props.vertical
+        ? -gestureState.dy
+        : gestureState.dx;
+    const accumDistanceDisplacement = this.props.vertical
+        ? gestureState.dx
+        : gestureState.dy;
+    let unconfined;
+    gestureState.x0 = gestureState.x0 - 20; //default slide x to -20 because thumb value is much So, -20 is perfect
+    unconfined = gestureState.x0;
+    var bottom = 0;
+    var trueTop =
+        this.state.positionTwo -
+        (this.props.allowOverlap
+            ? 0
+            : this.props.minMarkerOverlapDistance > 0
+                ? this.props.minMarkerOverlapDistance
+                : this.stepLength);
+    var top = trueTop === 0 ? 0 : trueTop || this.props.sliderLength;
+    var confined =
+        unconfined < bottom ? bottom : unconfined > top ? top : unconfined;
+    var slipDisplacement = this.props.touchDimensions.slipDisplacement;
+    if (
+        Math.abs(accumDistanceDisplacement) < slipDisplacement ||
+        !slipDisplacement
+    ) {
+      var value = positionToValue(
+          confined,
+          this.optionsArray,
+          this.props.sliderLength,
+      );
+      var snapped = valueToPosition(
+          value,
+          this.optionsArray,
+          this.props.sliderLength,
+      );
+      this.setState({
+        positionOne: this.props.snapped ? snapped : confined,
+      });
+      if (value !== this.state.valueOne) {
+        this.setState(
+            {
+              valueOne: value,
+            },
+            () => {
+              var change = [this.state.valueOne];
+              if (this.state.valueTwo) {
+                change.push(this.state.valueTwo);
+              }
+              this.props.onValuesChange(change);
+              this.props.onMarkersPosition([
+                this.state.positionOne,
+              ]);
+              this.setState({
+                pastOne: this.state.positionOne
+              });
+              //  console.log("tapped => position when tap : " + this.state.positionOne + " position two is " + this.state.positionTwo)
+            },
+        );
+        this.endOne(value);
+      }
     }
   };
 
@@ -324,6 +414,10 @@ export default class MultiSlider extends React.Component {
   };
 
   endOne = gestureState => {
+    if (!this.props.enabledOne) {
+      return;
+    }
+
     if (gestureState.moveX === 0 && this.props.onToggleOne) {
       this.props.onToggleOne();
       return;
@@ -352,6 +446,10 @@ export default class MultiSlider extends React.Component {
   };
 
   endTwo = gestureState => {
+    if (!this.props.enabledTwo) {
+      return;
+    }
+    
     if (gestureState.moveX === 0 && this.props.onToggleTwo) {
       this.props.onToggleTwo();
       return;
@@ -491,6 +589,7 @@ export default class MultiSlider extends React.Component {
     const {
       selectedStyle,
       unselectedStyle,
+      trackStyle,
       sliderLength,
       markerOffsetX,
       markerOffsetY,
@@ -507,6 +606,8 @@ export default class MultiSlider extends React.Component {
     const trackTwoStyle = twoMarkers
       ? selectedStyle || styles.selectedTrack
       : unselectedStyle;
+    const trackFourStyle = trackStyle;
+    const trackFourLength = this.props.loadingProgress;
     const Marker = this.props.customMarker;
 
     const MarkerLeft = this.props.customMarkerLeft;
@@ -554,6 +655,13 @@ export default class MultiSlider extends React.Component {
               this.props.trackStyle,
               trackOneStyle,
               { width: trackOneLength },
+            ]}
+          />
+          <View
+            style={[
+              styles.track,
+              trackFourStyle,
+              { width: trackFourLength },
             ]}
           />
           <View
@@ -671,16 +779,38 @@ export default class MultiSlider extends React.Component {
             twoMarkerPressed={this.state.twoPressed}
           />
         )}
-        {this.props.imageBackgroundSource && (
+        {/* when showing two thumb and with image background*/}
+        {(this.props.imageBackgroundSource && twoMarkers) && (
           <ImageBackground
-            source={this.props.imageBackgroundSource}
-            style={[{ width: '100%', height: '100%' }, containerStyle]}
+              source={this.props.imageBackgroundSource}
+              style={[{width: '100%', height: '100%'}, containerStyle]}>
+            {body}
+          </ImageBackground>
+        )}
+        {/* when showing one thumb and with image background*/}
+        {(this.props.imageBackgroundSource && !twoMarkers) && (
+          <ImageBackground
+              source={this.props.imageBackgroundSource}
+              style={[{width: '100%', height: '100%'}, containerStyle]}
+              {...(this.allowSliderClick ? this._panResponderOneTapped.panHandlers : {})}
           >
             {body}
           </ImageBackground>
         )}
-        {!this.props.imageBackgroundSource && (
-          <View style={containerStyle}>{body}</View>
+        {/* when showing two thumb and without image background*/}
+        {(!this.props.imageBackgroundSource && twoMarkers) && (
+          <View style={[{backgroundColor: "#00000000"}, containerStyle]}
+            ref={component => (this._markerOne = component)}>{body}</View>
+        )}
+
+        {/* when showing one thumb and without image background*/}
+        {(!this.props.imageBackgroundSource && !twoMarkers) && (
+          <View style={[{backgroundColor: "#00000000"}, containerStyle]}
+                ref={component => (this._markerOne = component)}
+                {...(this.props.allowSliderClick ? this._panResponderOneTapped.panHandlers : {})}
+          >
+            {body}
+          </View>
         )}
       </View>
     );
