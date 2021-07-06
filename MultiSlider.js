@@ -216,7 +216,7 @@ export default class MultiSlider extends React.Component {
         ? gestureState.dx
         : gestureState.dy;
     let unconfined;
-    gestureState.x0 = gestureState.x0 - 20; //default slide x to -20 because thumb value is much So, -20 is perfect
+    gestureState.x0 = gestureState.x0 - this.props.touchDimensions.width;
     unconfined = gestureState.x0;
     var bottom = 0;
     var trueTop =
