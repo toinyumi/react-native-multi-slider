@@ -249,25 +249,22 @@ export default class MultiSlider extends React.Component {
       });
       if (value !== this.state.valueOne) {
         this.setState(
-            {
-              valueOne: value,
-            },
-            () => {
-              var change = [this.state.valueOne];
-              if (this.state.valueTwo) {
-                change.push(this.state.valueTwo);
-              }
-              this.props.onValuesChange(change);
-              this.props.onMarkersPosition([
-                this.state.positionOne,
-              ]);
-              this.setState({
-                pastOne: this.state.positionOne
-              });
-              //  console.log("tapped => position when tap : " + this.state.positionOne + " position two is " + this.state.positionTwo)
-            },
+          {
+            valueOne: value,
+          },
+          () => {
+            var change = [this.state.valueOne];
+            if (this.state.valueTwo) {
+              change.push(this.state.valueTwo);
+            }
+            this.props.onValuesChange(change);
+
+            this.props.onMarkersPosition([
+              this.state.positionOne,
+              this.state.positionTwo,
+            ]);
+          },
         );
-        this.endOne(value);
       }
     }
   };
